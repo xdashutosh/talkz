@@ -3,7 +3,13 @@ import {Box,Container,Input,VStack,Button,HStack} from "@chakra-ui/react";
 import Message from "./components/Message";
 import { GoogleAuthProvider,signOut,signInWithPopup,getAuth,onAuthStateChanged} from "firebase/auth"
 import {app} from "./Firebase"
+import {getFirestore,addDoc,collection, serverTimestamp, onSnapshot} from "firebase/firestore"
+
+
+
 const auth =getAuth(app);
+
+const db=getFirestore(app);
 
 const loginhandler =()=>{
   const provider=new GoogleAuthProvider();
@@ -15,11 +21,46 @@ signOut(auth);
 
 function App() {
 const [useravail,setuseravail]=useState(false);
+const [message,setmessage]=useState("");
+const [messageArray,setmessageArray]=useState([]);
+const submithandler= async(e)=>{
+  e.preventDefault();
+  try {
+    await addDoc(collection(db,"Message"),{
+      text:message,
+      uid:useravail.uid,
+      uri:useravail.photoURL,
+      createdAt:serverTimestamp()
+    });
+    setmessage("");
+  } catch (error) {
+    alert(error);
+  }
+  }
+
 useEffect(() => {
 onAuthStateChanged(auth,(data)=>{
   setuseravail(data);
+});
+
+const unsubs=onSnapshot(collection(db,"Message"),(snap)=>{
+  setmessageArray(
+    snap.docs.map((item)=>{
+      const id=item.id
+
+      return {id,...item.data()};
+    })
+  )
+},[]);
+return()=>{
+  unsubs();
+}
 })
-})
+
+
+const cleardata=()=>{
+  setmessage("")
+}
   return (
     <Box bg={"red.50"}>
           {
@@ -30,30 +71,23 @@ onAuthStateChanged(auth,(data)=>{
               </Button>
     
           <VStack  h={"full"} w="full" overflowY="auto">
-            <Message text="hey ashu" user="other"/>
-            <Message text="hey abhi " user="me" />
-            <Message text="hey abhi " user="me" />
-            <Message text="hey ashu" user="other"/>
-            <Message text="hey ashu" user="other"/>
-            <Message text="hey abhi " user="me" />
-            <Message text="hey abhi " user="me" />
-            <Message text="hey ashu" user="other"/>
-            <Message text="hey abhi " user="me" />
-            <Message text="hey ashu" user="other"/>
-            <Message text="hey abhi " user="me" />
-            <Message text="hey abhi " user="me" />
-            <Message text="hey ashu" user="other"/>
-            <Message text="hey ashu" user="other"/>
-            <Message text="hey ashu" user="other"/>
-            <Message text="hey ashu" user="other"/>
-            <Message text="hey abhi " user="me" />
-            <Message text="hey abhi " user="me" />
+           {
+            messageArray.map((item)=>(
+              <Message 
+              key={item.id}
+              text={item.text}
+              uri={item.uri}
+              user={item.uri===item.uid?"me":"other" }
+              />
+            ))
+           }
+  
           </VStack>
     
-          <form style={{width: "100%"}}>
+          <form style={{width: "100%"}} onSubmit={submithandler} onChange={(e)=>setmessage(e.target.value)}>
             <HStack>
             <Input placeholder="Enter a message..."/>
-            <Button type="submit" colorScheme={"purple"}>Send</Button>
+            <Button type="submit" colorScheme={"purple"} onClick={cleardata}>Send</Button>
             </HStack>
           </form>
     
